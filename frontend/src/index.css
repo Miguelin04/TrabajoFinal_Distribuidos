@@ -1,15 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
 :root {
+  /* Dark theme (default) */
   --bg-color: #0b0f19;
+  --bg-secondary: #0f1419;
   --panel-bg: rgba(20, 27, 45, 0.6);
+  --panel-bg-secondary: rgba(30, 41, 59, 0.4);
   --panel-border: rgba(255, 255, 255, 0.1);
   --text-primary: #e2e8f0;
   --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
   --accent-blue: #3b82f6;
   --accent-purple: #8b5cf6;
   --success: #10b981;
   --danger: #ef4444;
+  --warning: #f59e0b;
+}
+
+html.light-theme {
+  /* Light theme */
+  --bg-color: #f8fafc;
+  --bg-secondary: #ffffff;
+  --panel-bg: rgba(255, 255, 255, 0.8);
+  --panel-bg-secondary: rgba(248, 250, 252, 0.6);
+  --panel-border: rgba(15, 23, 42, 0.1);
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --accent-blue: #0066cc;
+  --accent-purple: #6d28d9;
+  --success: #059669;
+  --danger: #dc2626;
+  --warning: #d97706;
 }
 
 * {
@@ -23,6 +45,10 @@ body {
   color: var(--text-primary);
   font-family: 'Inter', sans-serif;
   min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html:not(.light-theme) body {
   background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
                     radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%);
 }
