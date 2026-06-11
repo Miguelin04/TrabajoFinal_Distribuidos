@@ -1,9 +1,11 @@
 package com.example.demo;
 
 import com.corundumstudio.socketio.SocketIOServer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
+import java.net.InetAddress;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -12,7 +14,11 @@ import java.util.stream.Collectors;
 
 @Component
 public class SystemSimulation {
-    private Map<Integer, HospitalNode> nodes = new ConcurrentHashMap<>();
+    
+    @Value("${hospital.nodes.ips}")
+    private String[] nodeIps;
+    
+    private HospitalNode localNode;
     private LinkedList<String> logs = new LinkedList<>();
     private SocketIOServer server;
 
@@ -25,43 +31,60 @@ public class SystemSimulation {
 
     @PostConstruct
     public void init() {
-        for (int i = 1; i <= 5; i++) {
-            nodes.put(i, new HospitalNode(i, this));
-        }
-        for (int i = 1; i <= 5; i++) {
-            nodes.get(i).discoverCoordinator();
+        try {
+            String myIp = InetAddress.getLocalHost().getHostAddress();
+            int myId = -1;
+            for (int i = 0; i < nodeIps.length; i++) {
+                if (nodeIps[i].trim().equals(myIp)) {
+                    myId = i + 1;
+                    break;
+                }
+            }
+            
+            // Si la IP no coincide, forzamos nodo 1 para pruebas locales
+            if (myId == -1) {
+                myId = 1;
+                System.out.println("No se encontró la IP local en la lista. Asumiendo Nodo 1.");
+            }
+            
+            localNode = new HospitalNode(myId, this, nodeIps);
+            log("Physical Node " + myId + " initialized on IP " + myIp);
+            localNode.discoverCoordinator();
+            
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
     private void setupSocketListeners() {
         server.addEventListener("killNode", Integer.class, (client, data, ackSender) -> {
-            log("User requested to kill Node " + data);
-            HospitalNode node = getNode(data);
-            if (node != null) node.fail();
+            if (localNode != null && localNode.getId() == data) {
+                log("User requested to kill LOCAL Node " + data);
+                localNode.fail();
+            }
         });
 
         server.addEventListener("recoverNode", Integer.class, (client, data, ackSender) -> {
-            log("User requested to recover Node " + data);
-            HospitalNode node = getNode(data);
-            if (node != null) node.recover();
+            if (localNode != null && localNode.getId() == data) {
+                log("User requested to recover LOCAL Node " + data);
+                localNode.recover();
+            }
         });
 
         server.addEventListener("addDonor", Map.class, (client, data, ackSender) -> {
             Integer nodeId = ((Number) data.get("nodeId")).intValue();
-            String name = (String) data.get("name");
-            String bloodType = (String) data.get("bloodType");
-            
-            HospitalNode node = getNode(nodeId);
-            if (node != null && "active".equals(node.getState())) {
-                node.addDonor(name, bloodType);
+            if (localNode != null && localNode.getId() == nodeId && "active".equals(localNode.getState())) {
+                String name = (String) data.get("name");
+                String bloodType = (String) data.get("bloodType");
+                localNode.addDonor(name, bloodType);
             } else {
-                log("Cannot add donor: Node " + nodeId + " is inactive.");
+                log("Cannot add donor: Action must be performed on the specific physical node.");
             }
         });
     }
 
-    public HospitalNode getNode(int id) {
-        return nodes.get(id);
+    public HospitalNode getLocalNode() {
+        return localNode;
     }
 
     public void log(String message) {
@@ -77,17 +100,21 @@ public class SystemSimulation {
     }
 
     public void broadcastState() {
-        if (server == null) return;
-        List<Map<String, Object>> nodesData = nodes.values().stream().map(n -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", n.getId());
-            map.put("state", n.getState());
-            map.put("coordinator", n.getCoordinator());
-            map.put("clock", n.getClock());
-            map.put("vectorClock", n.getVectorClock());
-            map.put("donorsCount", n.getDonorsCount());
-            return map;
-        }).collect(Collectors.toList());
+        if (server == null || localNode == null) return;
+        
+        // En una red física real, el frontend de cada nodo solo mostraría el estado de sí mismo,
+        // o habría que hacer un ping cruzado a todos para la visualización.
+        // Aquí enviamos el estado de este único nodo físico a su frontend local.
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", localNode.getId());
+        map.put("state", localNode.getState());
+        map.put("coordinator", localNode.getCoordinator());
+        map.put("clock", localNode.getClock());
+        map.put("vectorClock", localNode.getVectorClock());
+        map.put("donorsCount", localNode.getDonorsCount());
+        
+        List<Map<String, Object>> nodesData = new ArrayList<>();
+        nodesData.add(map);
 
         Map<String, Object> state = new HashMap<>();
         state.put("nodes", nodesData);

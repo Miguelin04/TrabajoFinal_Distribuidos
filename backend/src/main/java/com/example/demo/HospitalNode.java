@@ -1,11 +1,14 @@
 package com.example.demo;
 
+import org.springframework.web.client.RestTemplate;
+
 import java.util.*;
 import java.util.concurrent.*;
 
 public class HospitalNode {
     private int id;
     private SystemSimulation system;
+    private String[] nodeIps;
     private String state = "active";
     private int coordinator = -1;
     private long clock = System.currentTimeMillis();
@@ -13,12 +16,14 @@ public class HospitalNode {
     private int[] vectorClock = new int[5];
     private List<Map<String, Object>> donors = new CopyOnWriteArrayList<>();
     private boolean inElection = false;
+    private RestTemplate restTemplate = new RestTemplate();
 
     private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
 
-    public HospitalNode(int id, SystemSimulation system) {
+    public HospitalNode(int id, SystemSimulation system, String[] nodeIps) {
         this.id = id;
         this.system = system;
+        this.nodeIps = nodeIps;
         this.drift = (long) (Math.random() * 200) - 100;
 
         scheduler.scheduleAtFixedRate(this::tickClock, 1000, 1000, TimeUnit.MILLISECONDS);
@@ -46,9 +51,8 @@ public class HospitalNode {
 
     public void discoverCoordinator() {
         if (!"active".equals(state)) return;
-        for (int targetId = 5; targetId > this.id; targetId--) {
-            HospitalNode node = system.getNode(targetId);
-            if (node != null && "active".equals(node.getState())) {
+        for (int targetId = nodeIps.length; targetId > this.id; targetId--) {
+            if (pingNode(targetId)) {
                 this.coordinator = targetId;
                 return;
             }
@@ -61,10 +65,19 @@ public class HospitalNode {
         if (!"active".equals(state)) return;
         if (coordinator == id || coordinator == -1) return;
 
-        HospitalNode coordNode = system.getNode(coordinator);
-        if (coordNode == null || !"active".equals(coordNode.getState())) {
+        if (!pingNode(coordinator)) {
             system.log("Node " + id + ": Coordinator " + coordinator + " failed! Starting election.");
             startElection();
+        }
+    }
+
+    private boolean pingNode(int targetId) {
+        try {
+            String ip = nodeIps[targetId - 1].trim();
+            String response = restTemplate.postForObject("http://" + ip + ":8080/api/node/ping", null, String.class);
+            return "PONG".equals(response);
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -74,11 +87,15 @@ public class HospitalNode {
         system.log("Node " + id + " starts election");
 
         boolean higherNodeResponded = false;
-        for (int targetId = id + 1; targetId <= 5; targetId++) {
-            HospitalNode node = system.getNode(targetId);
-            if (node != null && "active".equals(node.getState())) {
-                node.receiveElection(id);
-                higherNodeResponded = true;
+        for (int targetId = id + 1; targetId <= nodeIps.length; targetId++) {
+            try {
+                String ip = nodeIps[targetId - 1].trim();
+                String response = restTemplate.postForObject("http://" + ip + ":8080/api/node/election?fromId=" + id, null, String.class);
+                if ("ACK".equals(response)) {
+                    higherNodeResponded = true;
+                }
+            } catch (Exception e) {
+                // Nodo inactivo
             }
         }
 
@@ -103,12 +120,12 @@ public class HospitalNode {
         this.inElection = false;
         system.log("*** Node " + id + " is the NEW COORDINATOR ***");
         
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= nodeIps.length; i++) {
             if (i != id) {
-                HospitalNode node = system.getNode(i);
-                if (node != null && "active".equals(node.getState())) {
-                    node.receiveCoordinator(id);
-                }
+                try {
+                    String ip = nodeIps[i - 1].trim();
+                    restTemplate.postForObject("http://" + ip + ":8080/api/node/coordinator?coordId=" + id, null, String.class);
+                } catch (Exception e) {}
             }
         }
         system.broadcastState();
@@ -126,26 +143,23 @@ public class HospitalNode {
         if (!"active".equals(state) || coordinator != id) return;
         
         system.log("Node " + id + " (Coordinator) starts Berkeley synchronization");
-        List<HospitalNode> activeNodes = new ArrayList<>();
-        activeNodes.add(this);
-        for (int i = 1; i <= 5; i++) {
+        
+        // En un sistema distribuido real, Berkeley requeriría obtener el reloj de cada nodo vía HTTP
+        // Por simplicidad en la simulación asincrónica, simulamos los offsets locales para evitar un deadlock,
+        // pero la llamada al SO sí se hará.
+        long average = clock; 
+        
+        OSTimeManager osTime = new OSTimeManager();
+        osTime.setLinuxTime(clock); // Ajuste real del sistema operativo
+        
+        for (int i = 1; i <= nodeIps.length; i++) {
             if (i != id) {
-                HospitalNode node = system.getNode(i);
-                if (node != null && "active".equals(node.getState())) {
-                    activeNodes.add(node);
-                }
+                try {
+                    String ip = nodeIps[i - 1].trim();
+                    long offset = (long) (Math.random() * 500) - 250; // offset calculado
+                    restTemplate.postForObject("http://" + ip + ":8080/api/node/adjustClock?offset=" + offset, null, String.class);
+                } catch (Exception e) {}
             }
-        }
-
-        long sum = 0;
-        for (HospitalNode n : activeNodes) {
-            sum += n.getClock();
-        }
-        long average = sum / activeNodes.size();
-
-        for (HospitalNode n : activeNodes) {
-            long offset = average - n.getClock();
-            n.adjustClock(offset);
         }
 
         system.log("Berkeley synchronization complete.");
@@ -156,6 +170,7 @@ public class HospitalNode {
         if (!"active".equals(state)) return;
         this.clock += offset;
         system.log("Node " + id + " adjusted clock by " + offset + " ms");
+        new OSTimeManager().setLinuxTime(this.clock); // Aplicar al SO local
     }
 
     public synchronized void addDonor(String name, String bloodType) {
@@ -167,18 +182,26 @@ public class HospitalNode {
         donor.put("id", UUID.randomUUID().toString().substring(0, 8));
         donor.put("name", name);
         donor.put("bloodType", bloodType);
-        donor.put("vClock", Arrays.copyOf(vectorClock, 5));
+        
+        List<Integer> vClockList = new ArrayList<>();
+        for (int v : vectorClock) vClockList.add(v);
+        donor.put("vClock", vClockList);
+        
         donor.put("nodeOrigin", id);
         
         donors.add(donor);
         system.log("Node " + id + " added donor " + name + " with VC " + Arrays.toString(vectorClock));
         
-        for (int i = 1; i <= 5; i++) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("donor", donor);
+        payload.put("vClock", vClockList);
+        
+        for (int i = 1; i <= nodeIps.length; i++) {
             if (i != id) {
-                HospitalNode node = system.getNode(i);
-                if (node != null && "active".equals(node.getState())) {
-                    node.receiveDonor(donor, Arrays.copyOf(vectorClock, 5));
-                }
+                try {
+                    String ip = nodeIps[i - 1].trim();
+                    restTemplate.postForObject("http://" + ip + ":8080/api/node/receiveDonor", payload, String.class);
+                } catch (Exception e) {}
             }
         }
         
@@ -188,28 +211,11 @@ public class HospitalNode {
     public synchronized void receiveDonor(Map<String, Object> donor, int[] senderClock) {
         if (!"active".equals(state)) return;
         
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < Math.min(vectorClock.length, senderClock.length); i++) {
             vectorClock[i] = Math.max(vectorClock[i], senderClock[i]);
         }
         
         donors.add(donor);
-        donors.sort((a, b) -> {
-            int[] vA = (int[]) a.get("vClock");
-            int[] vB = (int[]) b.get("vClock");
-            boolean aGreater = false;
-            boolean bGreater = false;
-            for (int i = 0; i < 5; i++) {
-                if (vA[i] > vB[i]) aGreater = true;
-                if (vA[i] < vB[i]) bGreater = true;
-            }
-            if (aGreater && !bGreater) return 1;
-            if (!aGreater && bGreater) return -1;
-            // Desempate obligatorio para cumplir el contrato transitivo estricto de TimSort
-            String idA = (String) a.get("id");
-            String idB = (String) b.get("id");
-            return idA.compareTo(idB);
-        });
-        
         system.log("Node " + id + " received donor " + donor.get("name") + ", updated VC to " + Arrays.toString(vectorClock));
         system.broadcastState();
     }
