@@ -21,24 +21,40 @@ Se han implementado los siguientes algoritmos distribuidos requeridos en la espe
 - [Java Development Kit (JDK)](https://adoptium.net/) (Versión 17 o superior) y Maven instalado.
 - [Node.js](https://nodejs.org/es/) (Versión 18 o superior) para el frontend.
 
-### 2. Levantar el Backend (Lógica Distribuida en Java)
+### 2. Averiguar tu IP Local (Para pruebas en red con múltiples máquinas)
+Para que las otras máquinas puedan conectarse a la tuya a través del switch, necesitas saber tu dirección IP. Abre una terminal y ejecuta:
+```bash
+# En Linux/Mac:
+ip a  # o ifconfig
+
+# En Windows:
+ipconfig
+```
+Anota la IP asignada (ej. `192.168.1.50`).
+
+### 3. Levantar el Backend (Servidor Principal)
 En una terminal, ubícate en la carpeta raíz del proyecto y ejecuta:
 
 ```bash
 cd backend
+mvn clean install  # Opcional: para asegurar que todo compile
 mvn spring-boot:run
 ```
-El servidor backend correrá en `http://localhost:8080` y el puerto de WebSockets en `3001` y comenzará a generar los procesos concurrentes.
+El servidor backend aceptará conexiones de la red en el puerto de WebSockets `3001` y comenzará a generar los procesos concurrentes.
 
-### 3. Levantar el Frontend (Interfaz de Monitoreo)
-En una nueva terminal, ubícate en la carpeta raíz del proyecto y ejecuta:
+### 4. Levantar el Frontend (Interfaz de Monitoreo)
+En una **nueva terminal**, ubícate en la carpeta raíz del proyecto y expón el servidor a la red local con la bandera `--host`:
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev -- --host
 ```
-Accede a la URL indicada (generalmente `http://localhost:5173`) desde el navegador.
+
+### 5. Acceder desde otras máquinas (Clientes)
+- **Desde tu máquina principal:** Accede a `http://localhost:5173` desde el navegador.
+- **Desde las otras máquinas conectadas al switch:** No necesitan instalar ni ejecutar código. Solo deben abrir un navegador web y escribir la IP de tu máquina principal en la barra de direcciones:
+  `http://<TU_IP_LOCAL>:5173` (Ejemplo: `http://192.168.1.50:5173`)
 
 ## Uso del Panel
 

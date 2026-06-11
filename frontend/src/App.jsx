@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import io from 'socket.io-client'
 import './index.css'
 
-const socket = io('http://localhost:3001')
+const socket = io(`http://${window.location.hostname}:3001`, {
+  transports: ['websocket']
+});
 
 function App() {
   const [nodes, setNodes] = useState([])
