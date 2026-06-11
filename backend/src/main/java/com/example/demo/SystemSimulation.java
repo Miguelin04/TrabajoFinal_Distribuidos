@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -32,19 +33,34 @@ public class SystemSimulation {
     @PostConstruct
     public void init() {
         try {
-            String myIp = InetAddress.getLocalHost().getHostAddress();
+            String myIp = "Desconocida";
             int myId = -1;
-            for (int i = 0; i < nodeIps.length; i++) {
-                if (nodeIps[i].trim().equals(myIp)) {
-                    myId = i + 1;
-                    break;
+            
+            // Buscar la IP real en las tarjetas de red (evitar 127.0.1.1)
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+                if (iface.isLoopback() || !iface.isUp()) continue;
+
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    String ip = addr.getHostAddress();
+                    // Si encontramos una IP que está en nuestra lista de propiedades, la elegimos
+                    for (int i = 0; i < nodeIps.length; i++) {
+                        if (nodeIps[i].trim().equals(ip)) {
+                            myIp = ip;
+                            myId = i + 1;
+                            break;
+                        }
+                    }
                 }
             }
             
             // Si la IP no coincide, forzamos nodo 1 para pruebas locales
             if (myId == -1) {
                 myId = 1;
-                System.out.println("No se encontró la IP local en la lista. Asumiendo Nodo 1.");
+                System.out.println("No se encontró la IP local en la lista de red. Asumiendo Nodo 1.");
             }
             
             localNode = new HospitalNode(myId, this, nodeIps);

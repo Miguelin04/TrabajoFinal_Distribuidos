@@ -10,51 +10,44 @@ Se han implementado los siguientes algoritmos distribuidos requeridos en la espe
 2. **OE2 - Algoritmo Berkeley:** Implementado para la sincronización periódica de relojes. El coordinador solicita el tiempo lógico de cada nodo activo, calcula el promedio, y envía los offsets (ajustes) necesarios a cada nodo para mantener la equivalencia temporal.
 3. **OE3 - Vector Clock (Relojes Vectoriales):** Implementado para registrar y ordenar causalmente las operaciones de registro de donantes. Cada nodo mantiene un vector de estado `[0,0,0,0,0]` que se actualiza al crear o recibir un donante. La lista de donantes se ordena automáticamente respetando la precedencia causal de los eventos.
 
-## Arquitectura Tecnológica
+## Arquitectura Tecnológica (Sistema Distribuido Físico)
 
-- **Backend:** Desarrollado en Java usando `Spring Boot` y `WebSockets`. El backend encapsula la lógica concurrente de los 5 nodos de manera eficiente mediante el uso de hilos (Threads), simulando los eventos de red, latencias y fallos sin necesidad de gestionar manualmente puertos bloqueados a nivel de OS.
-- **Frontend:** Desarrollado en React y Vite. Interfaz moderna, con temática oscura (Dark Mode), Glassmorphism y diseño responsivo, usando CSS puro sin dependencias externas de diseño. Permite visualizar el estado en tiempo real, simular caídas y observar los logs del sistema.
+- **Backend:** Desarrollado en Java usando `Spring Boot` y `RestTemplate`. A diferencia de arquitecturas centralizadas, este sistema opera de forma totalmente descentralizada (Peer-to-Peer). Cada máquina física ejecuta su propio servidor que actúa como un **Nodo Único**, comunicándose con los demás a través de peticiones HTTP en red local.
+- **Frontend:** Desarrollado en React y Vite. Interfaz moderna (Dark Mode, Glassmorphism) que actúa como el panel de monitoreo individual de cada hospital/nodo.
 
 ## Instrucciones de Instalación y Uso
 
-### 1. Requisitos Previos
+### 1. Requisitos Previos en TODAS las Máquinas
 - [Java Development Kit (JDK)](https://adoptium.net/) (Versión 17 o superior) y Maven instalado.
 - [Node.js](https://nodejs.org/es/) (Versión 18 o superior) para el frontend.
+- Sistema Operativo **Linux** (obligatorio para el cambio automático de hora por hardware de Berkeley).
 
-### 2. Averiguar tu IP Local (Para pruebas en red con múltiples máquinas)
-Para que las otras máquinas puedan conectarse a la tuya a través del switch, necesitas saber tu dirección IP. Abre una terminal y ejecuta:
-```bash
-# En Linux/Mac:
-ip a  # o ifconfig
-
-# En Windows:
-ipconfig
+### 2. Configurar Direcciones IP (Static Peer Discovery)
+Las 4 máquinas deben tener IPs asignadas en la misma subred.
+Abre el archivo `backend/src/main/resources/application.properties` en TODAS las computadoras y edita la lista de IPs para que coincidan.
+El orden de las IPs dictará el ID del Nodo:
+```properties
+hospital.nodes.ips=192.168.1.10,192.168.1.11,192.168.1.12,192.168.1.13
 ```
-Anota la IP asignada (ej. `192.168.1.50`).
 
-### 3. Levantar el Backend (Servidor Principal)
-En una terminal, ubícate en la carpeta raíz del proyecto y ejecuta:
-
+### 3. Levantar el Backend (En cada máquina)
+Abre la terminal en la raíz del proyecto y ejecuta el servidor con **permisos de administrador** (crítico para que el comando `date -s` funcione sin dar 'Acceso Denegado' en Linux):
 ```bash
 cd backend
-mvn clean install  # Opcional: para asegurar que todo compile
-mvn spring-boot:run
+sudo mvn spring-boot:run
 ```
-El servidor backend aceptará conexiones de la red en el puerto de WebSockets `3001` y comenzará a generar los procesos concurrentes.
+*Cada servidor sabrá qué nodo es comparando su propia IP con la lista del archivo properties. Por ejemplo, la máquina con la IP `.13` asumirá ser el Nodo 4 y se postulará a Coordinador por Bully.*
 
-### 4. Levantar el Frontend (Interfaz de Monitoreo)
-En una **nueva terminal**, ubícate en la carpeta raíz del proyecto y expón el servidor a la red local con la bandera `--host`:
-
+### 4. Levantar el Frontend (En cada máquina)
+En una **nueva terminal**, sin permisos de admin, ejecuta:
 ```bash
 cd frontend
-npm install
 npm run dev -- --host
 ```
 
-### 5. Acceder desde otras máquinas (Clientes)
-- **Desde tu máquina principal:** Accede a `http://localhost:5173` desde el navegador.
-- **Desde las otras máquinas conectadas al switch:** No necesitan instalar ni ejecutar código. Solo deben abrir un navegador web y escribir la IP de tu máquina principal en la barra de direcciones:
-  `http://<TU_IP_LOCAL>:5173` (Ejemplo: `http://192.168.1.50:5173`)
+### 5. Acceso al Panel
+Abre el navegador en cada computadora e ingresa a `http://localhost:5173`. 
+Cada máquina verá su propio "Hospital", y las acciones que realicen (agregar donante) o fallos (Fail Node) se propagarán mediante la red local a las demás computadoras automáticamente.
 
 ## Uso del Panel
 
