@@ -118,19 +118,42 @@ public class SystemSimulation {
     public void broadcastState() {
         if (server == null || localNode == null) return;
         
-        // En una red física real, el frontend de cada nodo solo mostraría el estado de sí mismo,
-        // o habría que hacer un ping cruzado a todos para la visualización.
-        // Aquí enviamos el estado de este único nodo físico a su frontend local.
-        Map<String, Object> map = new HashMap<>();
-        map.put("id", localNode.getId());
-        map.put("state", localNode.getState());
-        map.put("coordinator", localNode.getCoordinator());
-        map.put("clock", localNode.getClock());
-        map.put("vectorClock", localNode.getVectorClock());
-        map.put("donorsCount", localNode.getDonorsCount());
-        
         List<Map<String, Object>> nodesData = new ArrayList<>();
-        nodesData.add(map);
+        org.springframework.web.client.RestTemplate rest = new org.springframework.web.client.RestTemplate();
+
+        for (int i = 0; i < nodeIps.length; i++) {
+            String ip = nodeIps[i].trim();
+            int nodeId = i + 1;
+            
+            if (nodeId == localNode.getId()) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", localNode.getId());
+                map.put("state", localNode.getState());
+                map.put("coordinator", localNode.getCoordinator());
+                map.put("clock", localNode.getClock());
+                map.put("vectorClock", localNode.getVectorClock());
+                map.put("donorsCount", localNode.getDonorsCount());
+                nodesData.add(map);
+            } else {
+                try {
+                    Map<String, Object> remoteState = rest.getForObject("http://" + ip + ":8085/api/node/state", Map.class);
+                    if (remoteState != null && !"offline".equals(remoteState.get("state"))) {
+                        nodesData.add(remoteState);
+                    } else {
+                        throw new Exception("Offline");
+                    }
+                } catch (Exception e) {
+                    Map<String, Object> offlineMap = new HashMap<>();
+                    offlineMap.put("id", nodeId);
+                    offlineMap.put("state", "failed");
+                    offlineMap.put("coordinator", -1);
+                    offlineMap.put("clock", System.currentTimeMillis());
+                    offlineMap.put("vectorClock", new int[]{0,0,0,0,0});
+                    offlineMap.put("donorsCount", 0);
+                    nodesData.add(offlineMap);
+                }
+            }
+        }
 
         Map<String, Object> state = new HashMap<>();
         state.put("nodes", nodesData);

@@ -60,4 +60,18 @@ public class PhysicalNodeController {
         }
         return "FAILED";
     }
+
+    @GetMapping("/state")
+    public Map<String, Object> getState() {
+        HospitalNode node = systemSimulation.getLocalNode();
+        if (node == null) return Map.of("state", "offline");
+        return Map.of(
+            "id", node.getId(),
+            "state", node.getState(),
+            "coordinator", node.getCoordinator(),
+            "clock", node.getClock(),
+            "vectorClock", node.getVectorClock(),
+            "donorsCount", node.getDonorsCount()
+        );
+    }
 }
