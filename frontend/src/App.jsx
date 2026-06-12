@@ -113,15 +113,9 @@ function App() {
             <option>B+</option><option>B-</option>
             <option>AB+</option><option>AB-</option>
           </select>
-          <select 
-            value={selectedNode}
-            onChange={e => setSelectedNode(e.target.value)}
-            className="input-field select-field"
-          >
-            {nodes.filter(n => n.state === 'active').map(n => (
-              <option key={n.id} value={n.id}>Vía Nodo {n.id}</option>
-            ))}
-          </select>
+          <div className="input-field" style={{background: 'transparent', border: 'none', color: 'var(--text-secondary)'}}>
+            (Se guardará en este hospital)
+          </div>
           <button type="submit" className="btn-primary">➕ Agregar</button>
         </form>
       </section>

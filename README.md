@@ -31,12 +31,13 @@ hospital.nodes.ips=192.168.1.10,192.168.1.11,192.168.1.12,192.168.1.13
 ```
 
 ### 3. Levantar el Backend (En cada máquina)
-Abre la terminal en la raíz del proyecto y ejecuta el servidor con **permisos de administrador** (crítico para que el comando `date -s` funcione sin dar 'Acceso Denegado' en Linux):
+Abre la terminal en la raíz del proyecto y ejecuta el servidor con **permisos de administrador** (crítico para que el comando `date -s` funcione en Linux):
 ```bash
 cd backend
+sudo mvn clean compile
 sudo mvn spring-boot:run
 ```
-*Cada servidor sabrá qué nodo es comparando su propia IP con la lista del archivo properties. Por ejemplo, la máquina con la IP `.13` asumirá ser el Nodo 4 y se postulará a Coordinador por Bully.*
+*NOTA: El backend interno usará el puerto `8085` para la comunicación REST inter-nodos y el puerto `3001` para WebSockets con el Frontend.*
 
 ### 4. Levantar el Frontend (En cada máquina)
 En una **nueva terminal**, sin permisos de admin, ejecuta:
@@ -47,10 +48,22 @@ npm run dev -- --host
 
 ### 5. Acceso al Panel
 Abre el navegador en cada computadora e ingresa a `http://localhost:5173`. 
-Cada máquina verá su propio "Hospital", y las acciones que realicen (agregar donante) o fallos (Fail Node) se propagarán mediante la red local a las demás computadoras automáticamente.
+Cada máquina verá su propio hospital. La tabla de "Nodos de la Red" hará un rastreo en vivo de las demás computadoras físicas mediante su IP, y las acciones que realicen se propagarán a la "Lista de Donantes".
 
 ## Uso del Panel
 
-- **Network Nodes:** Puedes visualizar el Coordinador actual, el reloj individual (sincronizado por Berkeley) y el Vector Clock de cada nodo. Usa los botones "Fail Node" y "Recover Node" para simular fallos y visualizar cómo el **Algoritmo Bully** escoge un nuevo líder.
-- **Add Donor Operation:** Agrega un donante simulando que la solicitud entró por un nodo específico. Verás cómo el **Vector Clock** se incrementa y la información se propaga ordenadamente.
-- **System Logs:** Registro en tiempo real de todos los eventos del sistema.
+- **Nodos de la Red:** Visualiza el Coordinador actual, el reloj individual (sincronizado por Berkeley) y el Reloj Vectorial de cada nodo. Usa los botones "Tumbar" y "Recuperar" para forzar fallos y visualizar cómo el **Algoritmo Bully** escoge un nuevo líder.
+- **Agregar Donante:** Agrega un donante simulando el ingreso de un paciente por un hospital. El **Reloj Vectorial** se incrementará y la base de datos se actualizará para todos respetando el orden causal en la "Lista de Donantes".
+- **Registros del Sistema:** Registro en tiempo real de todos los eventos del clúster (elecciones, sincronización y fallos).
+
+## ⚠️ Solución de Problemas Frecuentes (Troubleshooting)
+
+1. **Error `Address already in use` en puerto 3001 o 8085**
+   Si el backend lanza error de puerto al iniciar, es porque hay un proceso de Java o Node.js "zombie" oculto en segundo plano. Bórralo con:
+   ```bash
+   sudo fuser -k 3001/tcp
+   sudo killall java
+   ```
+
+2. **Aparecen 2 o más Coordinadores (Split-Brain / Cerebro Dividido)**
+   Si ves múltiples "👑" en la tabla, significa que la red está fragmentada. Esto ocurre estrictamente cuando las computadoras **no tienen el mismo código** o la lista de IPs en `application.properties` no es idéntica en todas las PCs. Asegúrate de pasar el proyecto exacto por USB/GitHub a tu compañero, y que ambos estén conectados al mismo WiFi.

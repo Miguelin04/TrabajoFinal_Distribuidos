@@ -88,13 +88,12 @@ public class SystemSimulation {
         });
 
         server.addEventListener("addDonor", Map.class, (client, data, ackSender) -> {
-            Integer nodeId = ((Number) data.get("nodeId")).intValue();
-            if (localNode != null && localNode.getId() == nodeId && "active".equals(localNode.getState())) {
+            if (localNode != null && "active".equals(localNode.getState())) {
                 String name = (String) data.get("name");
                 String bloodType = (String) data.get("bloodType");
                 localNode.addDonor(name, bloodType);
             } else {
-                log("Cannot add donor: Action must be performed on the specific physical node.");
+                log("Cannot add donor: Local node is not active or offline.");
             }
         });
     }
@@ -114,6 +113,8 @@ public class SystemSimulation {
             server.getBroadcastOperations().sendEvent("log", entry);
         }
     }
+
+    private Map<Integer, Boolean> nodeOnlineStatus = new ConcurrentHashMap<>();
 
     public void broadcastState() {
         if (server == null || localNode == null) return;
@@ -135,16 +136,29 @@ public class SystemSimulation {
                 map.put("vectorClock", localNode.getVectorClock());
                 map.put("donorsCount", localNode.getDonorsCount());
                 nodesData.add(map);
+                nodeOnlineStatus.put(nodeId, true);
             } else {
                 try {
                     Map<String, Object> remoteState = rest.getForObject("http://" + ip + ":8085/api/node/state", Map.class);
                     if (remoteState != null && !"offline".equals(remoteState.get("state"))) {
                         remoteState.put("ip", ip);
                         nodesData.add(remoteState);
+                        
+                        Boolean wasOnline = nodeOnlineStatus.get(nodeId);
+                        if (wasOnline != null && !wasOnline) {
+                            log("🔌 Nodo " + nodeId + " (IP: " + ip + ") ha reconectado su cable de red.");
+                        }
+                        nodeOnlineStatus.put(nodeId, true);
                     } else {
                         throw new Exception("Offline");
                     }
                 } catch (Exception e) {
+                    Boolean wasOnline = nodeOnlineStatus.get(nodeId);
+                    if (wasOnline == null || wasOnline) {
+                        log("⚠️ Nodo " + nodeId + " (IP: " + ip + ") ha perdido la conexión (cable desconectado o apagado).");
+                    }
+                    nodeOnlineStatus.put(nodeId, false);
+
                     Map<String, Object> offlineMap = new HashMap<>();
                     offlineMap.put("id", nodeId);
                     offlineMap.put("ip", ip);
