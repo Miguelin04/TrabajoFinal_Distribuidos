@@ -16,7 +16,7 @@ public class HospitalNode {
     private int[] vectorClock = new int[5];
     private List<Map<String, Object>> donors = new CopyOnWriteArrayList<>();
     private boolean inElection = false;
-    private RestTemplate restTemplate = new RestTemplate();
+    private RestTemplate restTemplate;
 
     private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
 
@@ -25,6 +25,11 @@ public class HospitalNode {
         this.system = system;
         this.nodeIps = nodeIps;
         this.drift = (long) (Math.random() * 200) - 100;
+
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(500);
+        factory.setReadTimeout(500);
+        this.restTemplate = new RestTemplate(factory);
 
         scheduler.scheduleAtFixedRate(this::tickClock, 1000, 1000, TimeUnit.MILLISECONDS);
         scheduler.scheduleAtFixedRate(this::monitorCoordinator, 3000, 3000, TimeUnit.MILLISECONDS);

@@ -61,6 +61,16 @@ public class PhysicalNodeController {
         return "FAILED";
     }
 
+    @PostMapping("/requestAddDonor")
+    public String requestAddDonor(@RequestParam String name, @RequestParam String bloodType) {
+        HospitalNode myNode = systemSimulation.getLocalNode();
+        if (myNode != null) {
+            myNode.addDonor(name, bloodType);
+            return "ACK";
+        }
+        return "FAILED";
+    }
+
     @GetMapping("/state")
     public Map<String, Object> getState() {
         HospitalNode node = systemSimulation.getLocalNode();

@@ -88,12 +88,25 @@ public class SystemSimulation {
         });
 
         server.addEventListener("addDonor", Map.class, (client, data, ackSender) -> {
-            if (localNode != null && "active".equals(localNode.getState())) {
-                String name = (String) data.get("name");
-                String bloodType = (String) data.get("bloodType");
-                localNode.addDonor(name, bloodType);
+            Integer targetNodeId = ((Number) data.get("nodeId")).intValue();
+            String name = (String) data.get("name");
+            String bloodType = (String) data.get("bloodType");
+
+            if (localNode != null && localNode.getId() == targetNodeId) {
+                if ("active".equals(localNode.getState())) {
+                    localNode.addDonor(name, bloodType);
+                } else {
+                    log("Cannot add donor: Local node is offline.");
+                }
             } else {
-                log("Cannot add donor: Local node is not active or offline.");
+                try {
+                    String targetIp = nodeIps[targetNodeId - 1].trim();
+                    org.springframework.web.client.RestTemplate rest = new org.springframework.web.client.RestTemplate();
+                    rest.postForObject("http://" + targetIp + ":8085/api/node/requestAddDonor?name=" + name + "&bloodType=" + bloodType, null, String.class);
+                    log("Delegated donor creation to Node " + targetNodeId + " via P2P.");
+                } catch (Exception e) {
+                    log("Failed to delegate donor creation to Node " + targetNodeId + ". Is it offline?");
+                }
             }
         });
     }
@@ -120,7 +133,10 @@ public class SystemSimulation {
         if (server == null || localNode == null) return;
         
         List<Map<String, Object>> nodesData = new ArrayList<>();
-        org.springframework.web.client.RestTemplate rest = new org.springframework.web.client.RestTemplate();
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(500);
+        factory.setReadTimeout(500);
+        org.springframework.web.client.RestTemplate rest = new org.springframework.web.client.RestTemplate(factory);
 
         for (int i = 0; i < nodeIps.length; i++) {
             String ip = nodeIps[i].trim();
