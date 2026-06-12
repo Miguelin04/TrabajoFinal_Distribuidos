@@ -74,7 +74,7 @@ public class HospitalNode {
     private boolean pingNode(int targetId) {
         try {
             String ip = nodeIps[targetId - 1].trim();
-            String response = restTemplate.postForObject("http://" + ip + ":8080/api/node/ping", null, String.class);
+            String response = restTemplate.postForObject("http://" + ip + ":8085/api/node/ping", null, String.class);
             return "PONG".equals(response);
         } catch (Exception e) {
             return false;
@@ -90,7 +90,7 @@ public class HospitalNode {
         for (int targetId = id + 1; targetId <= nodeIps.length; targetId++) {
             try {
                 String ip = nodeIps[targetId - 1].trim();
-                String response = restTemplate.postForObject("http://" + ip + ":8080/api/node/election?fromId=" + id, null, String.class);
+                String response = restTemplate.postForObject("http://" + ip + ":8085/api/node/election?fromId=" + id, null, String.class);
                 if ("ACK".equals(response)) {
                     higherNodeResponded = true;
                 }
@@ -124,7 +124,7 @@ public class HospitalNode {
             if (i != id) {
                 try {
                     String ip = nodeIps[i - 1].trim();
-                    restTemplate.postForObject("http://" + ip + ":8080/api/node/coordinator?coordId=" + id, null, String.class);
+                    restTemplate.postForObject("http://" + ip + ":8085/api/node/coordinator?coordId=" + id, null, String.class);
                 } catch (Exception e) {}
             }
         }
@@ -157,7 +157,7 @@ public class HospitalNode {
                 try {
                     String ip = nodeIps[i - 1].trim();
                     long offset = (long) (Math.random() * 500) - 250; // offset calculado
-                    restTemplate.postForObject("http://" + ip + ":8080/api/node/adjustClock?offset=" + offset, null, String.class);
+                    restTemplate.postForObject("http://" + ip + ":8085/api/node/adjustClock?offset=" + offset, null, String.class);
                 } catch (Exception e) {}
             }
         }
@@ -200,7 +200,7 @@ public class HospitalNode {
             if (i != id) {
                 try {
                     String ip = nodeIps[i - 1].trim();
-                    restTemplate.postForObject("http://" + ip + ":8080/api/node/receiveDonor", payload, String.class);
+                    restTemplate.postForObject("http://" + ip + ":8085/api/node/receiveDonor", payload, String.class);
                 } catch (Exception e) {}
             }
         }
