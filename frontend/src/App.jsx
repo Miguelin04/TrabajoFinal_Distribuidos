@@ -200,8 +200,8 @@ function App() {
                         <td>
                           <span className="blood-type-badge">{donor.bloodType}</span>
                         </td>
-                        <td>Nodo {donor.nodeId}</td>
-                        <td className="vc-value">[{donor.vectorClock.join(', ')}]</td>
+                        <td>Nodo {donor.nodeOrigin}</td>
+                        <td className="vc-value">[{donor.vClock ? donor.vClock.join(', ') : '?'}]</td>
                       </tr>
                     ))
                   )}

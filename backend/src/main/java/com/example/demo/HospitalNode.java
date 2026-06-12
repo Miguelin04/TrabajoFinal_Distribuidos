@@ -226,4 +226,5 @@ public class HospitalNode {
     public synchronized long getClock() { return clock; }
     public synchronized int[] getVectorClock() { return Arrays.copyOf(vectorClock, 5); }
     public synchronized int getDonorsCount() { return donors.size(); }
+    public synchronized List<Map<String, Object>> getDonors() { return new ArrayList<>(donors); }
 }
