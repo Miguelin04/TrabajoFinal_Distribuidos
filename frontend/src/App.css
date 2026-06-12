@@ -520,3 +520,13 @@ button {
     font-size: 0.85rem;
   }
 }
+
+.blood-type-badge {
+  background: var(--primary-color);
+  color: white;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 0.85em;
+  display: inline-block;
+}

@@ -1,7 +1,2 @@
 com/example/demo/DemoApplication.class
-com/example/demo/SystemSimulation.class
-com/example/demo/RestTemplateConfig.class
-com/example/demo/SocketIOConfig.class
-com/example/demo/OSTimeManager.class
 com/example/demo/HospitalNode.class
-com/example/demo/PhysicalNodeController.class

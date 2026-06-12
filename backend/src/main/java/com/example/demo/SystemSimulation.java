@@ -128,6 +128,7 @@ public class SystemSimulation {
             if (nodeId == localNode.getId()) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", localNode.getId());
+                map.put("ip", ip);
                 map.put("state", localNode.getState());
                 map.put("coordinator", localNode.getCoordinator());
                 map.put("clock", localNode.getClock());
@@ -138,6 +139,7 @@ public class SystemSimulation {
                 try {
                     Map<String, Object> remoteState = rest.getForObject("http://" + ip + ":8085/api/node/state", Map.class);
                     if (remoteState != null && !"offline".equals(remoteState.get("state"))) {
+                        remoteState.put("ip", ip);
                         nodesData.add(remoteState);
                     } else {
                         throw new Exception("Offline");
@@ -145,6 +147,7 @@ public class SystemSimulation {
                 } catch (Exception e) {
                     Map<String, Object> offlineMap = new HashMap<>();
                     offlineMap.put("id", nodeId);
+                    offlineMap.put("ip", ip);
                     offlineMap.put("state", "failed");
                     offlineMap.put("coordinator", -1);
                     offlineMap.put("clock", System.currentTimeMillis());
@@ -157,6 +160,7 @@ public class SystemSimulation {
 
         Map<String, Object> state = new HashMap<>();
         state.put("nodes", nodesData);
+        state.put("donors", localNode.getDonors());
         server.getBroadcastOperations().sendEvent("state", state);
     }
 

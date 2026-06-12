@@ -8,6 +8,7 @@ const socket = io(`http://${window.location.hostname}:3001`, {
 
 function App() {
   const [nodes, setNodes] = useState([])
+  const [donors, setDonors] = useState([])
   const [logs, setLogs] = useState([])
   const [newDonorName, setNewDonorName] = useState('')
   const [newDonorType, setNewDonorType] = useState('O+')
@@ -42,6 +43,9 @@ function App() {
   useEffect(() => {
     socket.on('state', (state) => {
       setNodes(state.nodes)
+      if (state.donors) {
+        setDonors(state.donors)
+      }
     })
 
     socket.on('logs', (initialLogs) => {
@@ -72,8 +76,8 @@ function App() {
     <div className="app-container">
       <header className="header">
         <div className="header-left">
-          <h1 className="title">Hospital Distributed System</h1>
-          <p className="subtitle">🏥 Bully | 🕐 Berkeley | 🔄 Vector Clock</p>
+          <h1 className="title">Sistema Distribuido Hospitalario</h1>
+          <p className="subtitle">🏥 Bully | 🕐 Berkeley | 🔄 Relojes Vectoriales</p>
         </div>
         <div className="header-right">
           <div className="theme-toggle" onClick={toggleTheme}>
@@ -81,7 +85,7 @@ function App() {
               {isDarkTheme ? '☀️' : '🌙'}
             </button>
             <span className="theme-label">
-              {isDarkTheme ? 'Dark' : 'Light'}
+              {isDarkTheme ? 'Oscuro' : 'Claro'}
             </span>
           </div>
         </div>
@@ -89,13 +93,13 @@ function App() {
 
       {/* Add Donor Operation - Top Section */}
       <section className="glass-panel donor-section">
-        <h2>💉 Add Donor Operation</h2>
+        <h2>💉 Agregar Donante</h2>
         <form onSubmit={handleAddDonor} className="donor-form-inline">
           <input 
             type="text" 
             value={newDonorName}
             onChange={e => setNewDonorName(e.target.value)}
-            placeholder="Donor Full Name" 
+            placeholder="Nombre Completo" 
             className="input-field"
             required
           />
@@ -115,10 +119,10 @@ function App() {
             className="input-field select-field"
           >
             {nodes.filter(n => n.state === 'active').map(n => (
-              <option key={n.id} value={n.id}>Via Node {n.id}</option>
+              <option key={n.id} value={n.id}>Vía Nodo {n.id}</option>
             ))}
           </select>
-          <button type="submit" className="btn-primary">➕ Add Donor</button>
+          <button type="submit" className="btn-primary">➕ Agregar</button>
         </form>
       </section>
 
@@ -126,40 +130,42 @@ function App() {
         {/* Network Nodes Table */}
         <div className="left-panel">
           <section className="glass-panel">
-            <h2>🌐 Network Nodes</h2>
+            <h2>🌐 Nodos de la Red</h2>
             <div className="nodes-table-wrapper">
               <table className="nodes-table">
                 <thead>
                   <tr>
-                    <th>Node</th>
-                    <th>Status</th>
-                    <th>Coordinator</th>
-                    <th>Clock</th>
-                    <th>Vector Clock</th>
-                    <th>Donors</th>
-                    <th>Action</th>
+                    <th>Nodo</th>
+                    <th>Dirección IP</th>
+                    <th>Estado</th>
+                    <th>Coordinador</th>
+                    <th>Reloj</th>
+                    <th>Reloj Vectorial</th>
+                    <th>Donantes</th>
+                    <th>Acción</th>
                   </tr>
                 </thead>
                 <tbody>
                   {nodes.map(node => (
                     <tr key={node.id} className={`node-row ${node.state === 'active' ? 'active' : 'failed'}`}>
-                      <td className="node-id">Node {node.id}</td>
+                      <td className="node-id">Nodo {node.id}</td>
+                      <td className="node-ip" style={{fontSize: '0.85em', color: 'var(--text-secondary)'}}>{node.ip || 'Desconocida'}</td>
                       <td>
                         <span className={`status-badge ${node.state}`}>
-                          {node.state === 'active' ? '● Active' : '○ Failed'}
+                          {node.state === 'active' ? '● Activo' : '○ Caído'}
                         </span>
                       </td>
                       <td className="coord-value">
-                        {node.coordinator === -1 ? 'None' : `${node.coordinator} ${node.coordinator === node.id ? '👑' : ''}`}
+                        {node.coordinator === -1 ? 'Ninguno' : `${node.coordinator} ${node.coordinator === node.id ? '👑' : ''}`}
                       </td>
                       <td className="clock-value">{new Date(node.clock).toISOString().substr(11, 12)}</td>
                       <td className="vc-value">[{node.vectorClock.join(', ')}]</td>
                       <td className="donors-value">{node.donorsCount}</td>
                       <td className="action-cell">
                         {node.state === 'active' ? (
-                          <button onClick={() => handleKill(node.id)} className="btn-fail btn-small">Fail</button>
+                          <button onClick={() => handleKill(node.id)} className="btn-fail btn-small">Tumbar</button>
                         ) : (
-                          <button onClick={() => handleRecover(node.id)} className="btn-recover btn-small">Recover</button>
+                          <button onClick={() => handleRecover(node.id)} className="btn-recover btn-small">Recuperar</button>
                         )}
                       </td>
                     </tr>
@@ -168,15 +174,50 @@ function App() {
               </table>
             </div>
           </section>
+
+          {/* Donors Table Section */}
+          <section className="glass-panel" style={{ marginTop: '20px' }}>
+            <h2>🩸 Lista de Donantes (Ordenamiento Causal)</h2>
+            <div className="nodes-table-wrapper">
+              <table className="nodes-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Tipo de Sangre</th>
+                    <th>Añadido en Nodo</th>
+                    <th>Reloj Vectorial del Evento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {donors.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" style={{textAlign: 'center', padding: '1rem'}}>Aún no hay donantes registrados.</td>
+                    </tr>
+                  ) : (
+                    donors.map((donor, idx) => (
+                      <tr key={idx}>
+                        <td>{donor.name}</td>
+                        <td>
+                          <span className="blood-type-badge">{donor.bloodType}</span>
+                        </td>
+                        <td>Nodo {donor.nodeId}</td>
+                        <td className="vc-value">[{donor.vectorClock.join(', ')}]</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
         {/* System Logs */}
         <div className="right-panel glass-panel">
-          <h2 className="logs-title">📋 System Logs <span className="pulsing-dot"></span></h2>
+          <h2 className="logs-title">📋 Registros del Sistema <span className="pulsing-dot"></span></h2>
           <div className="logs-container">
             {logs.length === 0 ? (
               <div style={{textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem'}}>
-                Waiting for system events...
+                Esperando eventos del sistema...
               </div>
             ) : (
               logs.map((log, i) => (
