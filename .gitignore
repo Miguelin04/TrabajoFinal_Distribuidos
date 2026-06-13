@@ -1,0 +1,12 @@
+nano .gitignore
+
+# Ignorar la carpeta de compilación de Maven (Java)
+**/target/
+*.class
+
+# Opcional: Ignorar archivos de configuración del IDE (si usas IntelliJ o Eclipse)
+.idea/
+*.iml
+.settings/
+.project
+.classpath
