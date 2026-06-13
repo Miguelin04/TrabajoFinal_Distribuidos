@@ -11,6 +11,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Component
@@ -118,9 +119,12 @@ public class SystemSimulation {
     private Map<Integer, Integer> nodeFailureCount = new ConcurrentHashMap<>();
     private static final int MAX_FAILURES_BEFORE_SKIP = 3;
     private int broadcastCycle = 0;
+    private AtomicBoolean broadcasting = new AtomicBoolean(false);
 
     public void broadcastState() {
         if (server == null || localNode == null) return;
+        if (!broadcasting.compareAndSet(false, true)) return;
+        try {
         
         List<Map<String, Object>> nodesData = new ArrayList<>();
         org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
@@ -165,7 +169,7 @@ public class SystemSimulation {
                         nodesData.add(remoteState);
                         nodeFailureCount.put(nodeId, 0);
                         
-                        Boolean wasOnline = nodeOnlineStatus.get(nodeId);
+                        Boolean wasOnline = nodeOnlineStatus.put(nodeId, true);
                         if (wasOnline != null && !wasOnline) {
                             log("🔌 Nodo " + nodeId + " (IP: " + ip + ") ha reconectado su cable de red.");
                             // Escenario A + Bucle 4: Actualizar coordinador ANTES de sincronizar tiempo
@@ -186,17 +190,15 @@ public class SystemSimulation {
                                 localNode.startElection();
                             }
                         }
-                        nodeOnlineStatus.put(nodeId, true);
                     } else {
                         throw new Exception("Offline");
                     }
                 } catch (Exception e) {
                     nodeFailureCount.put(nodeId, nodeFailureCount.getOrDefault(nodeId, 0) + 1);
-                    Boolean wasOnline = nodeOnlineStatus.get(nodeId);
+                    Boolean wasOnline = nodeOnlineStatus.put(nodeId, false);
                     if (wasOnline == null || wasOnline) {
                         log("⚠️ Nodo " + nodeId + " (IP: " + ip + ") ha perdido la conexión (cable desconectado o apagado).");
                     }
-                    nodeOnlineStatus.put(nodeId, false);
 
                     Map<String, Object> offlineMap = new HashMap<>();
                     offlineMap.put("id", nodeId);
@@ -218,6 +220,9 @@ public class SystemSimulation {
         state.put("donors", localNode.getDonors());
         state.put("localNodeId", localNode.getId());
         server.getBroadcastOperations().sendEvent("state", state);
+        } finally {
+            broadcasting.set(false);
+        }
     }
 
     public List<String> getLogs() {
