@@ -150,7 +150,7 @@ public class SystemSimulation {
                         Boolean wasOnline = nodeOnlineStatus.get(nodeId);
                         if (wasOnline != null && !wasOnline) {
                             log("🔌 Nodo " + nodeId + " (IP: " + ip + ") ha reconectado su cable de red.");
-                            localNode.initialTimeSync();
+                            rest.postForObject("http://" + ip + ":8085/api/node/requestTimeSync", null, String.class);
                         }
                         nodeOnlineStatus.put(nodeId, true);
                     } else {

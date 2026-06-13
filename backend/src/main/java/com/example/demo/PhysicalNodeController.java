@@ -71,6 +71,16 @@ public class PhysicalNodeController {
         return "FAILED";
     }
 
+    @PostMapping("/requestTimeSync")
+    public String requestTimeSync() {
+        HospitalNode myNode = systemSimulation.getLocalNode();
+        if (myNode != null) {
+            myNode.initialTimeSync();
+            return "ACK";
+        }
+        return "FAILED";
+    }
+
     @GetMapping("/state")
     public Map<String, Object> getState() {
         HospitalNode node = systemSimulation.getLocalNode();
