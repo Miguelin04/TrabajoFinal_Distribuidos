@@ -7,7 +7,7 @@ Este proyecto implementa una simulación de un sistema distribuido para una red 
 Se han implementado los siguientes algoritmos distribuidos requeridos en la especificación del trabajo final:
 
 1. **OE1 - Algoritmo Bully:** Implementado para la elección automática del nodo coordinador (Líder) cuando este falla. Los nodos se monitorean periódicamente (Ping) y, ante la ausencia de respuesta, el nodo que lo detecta inicia una elección enviando un mensaje a los nodos de ID superior.
-2. **OE2 - Algoritmo Berkeley:** Implementado para la sincronización periódica de relojes. El coordinador solicita el tiempo lógico de cada nodo activo, calcula el promedio, y envía los offsets (ajustes) necesarios a cada nodo para mantener la equivalencia temporal.
+2. **OE2 - Algoritmo de Cristian:** Implementado para la sincronización de relojes al iniciar el sistema. El coordinador (servidor de tiempo autoritario) toma la hora real de su sistema operativo y la envía a todos los nodos, quienes ajustan su reloj interno y el reloj del SO con `date -s`.
 3. **OE3 - Vector Clock (Relojes Vectoriales):** Implementado para registrar y ordenar causalmente las operaciones de registro de donantes. Cada nodo mantiene un vector de estado `[0,0,0,0,0]` que se actualiza al crear o recibir un donante. La lista de donantes se ordena automáticamente respetando la precedencia causal de los eventos.
 
 ## Arquitectura Tecnológica (Sistema Distribuido Físico)
@@ -20,14 +20,14 @@ Se han implementado los siguientes algoritmos distribuidos requeridos en la espe
 ### 1. Requisitos Previos en TODAS las Máquinas
 - [Java Development Kit (JDK)](https://adoptium.net/) (Versión 17 o superior) y Maven instalado.
 - [Node.js](https://nodejs.org/es/) (Versión 18 o superior) para el frontend.
-- Sistema Operativo **Linux** (obligatorio para el cambio automático de hora por hardware de Berkeley).
+- Sistema Operativo **Linux** (obligatorio para el cambio automático de hora del sistema con `date -s`).
 
 ### 2. Configurar Direcciones IP (Static Peer Discovery)
 Las 4 máquinas deben tener IPs asignadas en la misma subred.
 Abre el archivo `backend/src/main/resources/application.properties` en TODAS las computadoras y edita la lista de IPs para que coincidan.
 El orden de las IPs dictará el ID del Nodo:
 ```properties
-hospital.nodes.ips=192.168.1.10,192.168.1.11,192.168.1.12,192.168.1.13
+hospital.nodes.ips=192.168.1.10,192.168.1.11,192.168.1.12,192.168.1.13,192.168.1.14
 ```
 
 ### 3. Levantar el Backend (En cada máquina)
@@ -52,7 +52,7 @@ Cada máquina verá su propio hospital. La tabla de "Nodos de la Red" hará un r
 
 ## Uso del Panel
 
-- **Nodos de la Red:** Visualiza el Coordinador actual, el reloj individual (sincronizado por Berkeley) y el Reloj Vectorial de cada nodo. Usa los botones "Tumbar" y "Recuperar" para forzar fallos y visualizar cómo el **Algoritmo Bully** escoge un nuevo líder.
+- **Nodos de la Red:** Visualiza el Coordinador actual, el reloj individual (sincronizado por Cristian al inicio) y el Reloj Vectorial de cada nodo. Usa los botones "Tumbar" y "Recuperar" para forzar fallos y visualizar cómo el **Algoritmo Bully** escoge un nuevo líder.
 - **Agregar Donante:** Agrega un donante simulando el ingreso de un paciente por un hospital. El **Reloj Vectorial** se incrementará y la base de datos se actualizará para todos respetando el orden causal en la "Lista de Donantes".
 - **Registros del Sistema:** Registro en tiempo real de todos los eventos del clúster (elecciones, sincronización y fallos).
 

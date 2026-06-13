@@ -64,8 +64,9 @@ public class SystemSimulation {
             }
             
             localNode = new HospitalNode(myId, this, nodeIps);
-            log("Physical Node " + myId + " initialized on IP " + myIp);
+            log("Nodo físico " + myId + " iniciado en IP " + myIp);
             localNode.discoverCoordinator();
+            localNode.initialTimeSync();
             
         } catch (Exception e) {
             e.printStackTrace();
@@ -75,14 +76,14 @@ public class SystemSimulation {
     private void setupSocketListeners() {
         server.addEventListener("killNode", Integer.class, (client, data, ackSender) -> {
             if (localNode != null && localNode.getId() == data) {
-                log("User requested to kill LOCAL Node " + data);
+                log("Usuario solicitó tumbar Nodo LOCAL " + data);
                 localNode.fail();
             }
         });
 
         server.addEventListener("recoverNode", Integer.class, (client, data, ackSender) -> {
             if (localNode != null && localNode.getId() == data) {
-                log("User requested to recover LOCAL Node " + data);
+                log("Usuario solicitó recuperar Nodo LOCAL " + data);
                 localNode.recover();
             }
         });
@@ -96,16 +97,16 @@ public class SystemSimulation {
                 if ("active".equals(localNode.getState())) {
                     localNode.addDonor(name, bloodType);
                 } else {
-                    log("Cannot add donor: Local node is offline.");
+                    log("No se puede agregar donante: El nodo local está desconectado.");
                 }
             } else {
                 try {
                     String targetIp = nodeIps[targetNodeId - 1].trim();
                     org.springframework.web.client.RestTemplate rest = new org.springframework.web.client.RestTemplate();
                     rest.postForObject("http://" + targetIp + ":8085/api/node/requestAddDonor?name=" + name + "&bloodType=" + bloodType, null, String.class);
-                    log("Delegated donor creation to Node " + targetNodeId + " via P2P.");
+                    log("Creación de donante delegada al Nodo " + targetNodeId + " vía P2P.");
                 } catch (Exception e) {
-                    log("Failed to delegate donor creation to Node " + targetNodeId + ". Is it offline?");
+                    log("Error al delegar donante al Nodo " + targetNodeId + ". ¿Está desconectado?");
                 }
             }
         });

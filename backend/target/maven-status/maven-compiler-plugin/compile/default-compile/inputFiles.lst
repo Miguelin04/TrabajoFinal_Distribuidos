@@ -1,7 +1,7 @@
-/home/miguel/Escritorio/Sistemas Distribuidos/Trabajo final/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/DemoApplication.java
-/home/miguel/Escritorio/Sistemas Distribuidos/Trabajo final/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/HospitalNode.java
-/home/miguel/Escritorio/Sistemas Distribuidos/Trabajo final/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/OSTimeManager.java
-/home/miguel/Escritorio/Sistemas Distribuidos/Trabajo final/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/PhysicalNodeController.java
-/home/miguel/Escritorio/Sistemas Distribuidos/Trabajo final/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/RestTemplateConfig.java
-/home/miguel/Escritorio/Sistemas Distribuidos/Trabajo final/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/SocketIOConfig.java
-/home/miguel/Escritorio/Sistemas Distribuidos/Trabajo final/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/SystemSimulation.java
+/home/deivy/Documentos/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/DemoApplication.java
+/home/deivy/Documentos/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/HospitalNode.java
+/home/deivy/Documentos/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/OSTimeManager.java
+/home/deivy/Documentos/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/PhysicalNodeController.java
+/home/deivy/Documentos/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/RestTemplateConfig.java
+/home/deivy/Documentos/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/SocketIOConfig.java
+/home/deivy/Documentos/TrabajoFinal_Distribuidos/backend/src/main/java/com/example/demo/SystemSimulation.java

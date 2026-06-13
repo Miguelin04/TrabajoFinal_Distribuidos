@@ -63,8 +63,6 @@ function App() {
     }
   }, [])
 
-  const handleKill = (id) => socket.emit('killNode', id)
-  const handleRecover = (id) => socket.emit('recoverNode', id)
   const handleAddDonor = (e) => {
     e.preventDefault()
     if (!newDonorName) return
@@ -72,12 +70,15 @@ function App() {
     setNewDonorName('')
   }
 
+  const coordIds = nodes.filter(n => n.state === 'active' && n.coordinator === n.id).map(n => n.id)
+  const actualCoordId = coordIds.length > 0 ? Math.max(...coordIds) : -1
+
   return (
     <div className="app-container">
       <header className="header">
         <div className="header-left">
           <h1 className="title">Sistema Distribuido Hospitalario</h1>
-          <p className="subtitle">🏥 Bully | 🕐 Berkeley | 🔄 Relojes Vectoriales</p>
+          <p className="subtitle">🏥 Bully | 🕐 Cristian | 🔄 Relojes Vectoriales</p>
         </div>
         <div className="header-right">
           <div className="theme-toggle" onClick={toggleTheme}>
@@ -119,7 +120,7 @@ function App() {
             className="input-field select-field"
           >
             {nodes.filter(n => n.state === 'active').map(n => (
-              <option key={n.id} value={n.id}>Vía Nodo {n.id}</option>
+              <option key={n.id} value={n.id}>Destino: Nodo {n.id}</option>
             ))}
           </select>
           <button type="submit" className="btn-primary">➕ Agregar</button>
@@ -156,17 +157,13 @@ function App() {
                         </span>
                       </td>
                       <td className="coord-value">
-                        {node.coordinator === -1 ? 'Ninguno' : `${node.coordinator} ${node.coordinator === node.id ? '👑' : ''}`}
+                        {actualCoordId === -1 ? 'Ninguno' : `${actualCoordId} ${node.id === actualCoordId ? '👑' : ''}`}
                       </td>
                       <td className="clock-value">{new Date(node.clock).toISOString().substr(11, 12)}</td>
                       <td className="vc-value">[{node.vectorClock.join(', ')}]</td>
                       <td className="donors-value">{node.donorsCount}</td>
                       <td className="action-cell">
-                        {node.state === 'active' ? (
-                          <button onClick={() => handleKill(node.id)} className="btn-fail btn-small">Tumbar</button>
-                        ) : (
-                          <button onClick={() => handleRecover(node.id)} className="btn-recover btn-small">Recuperar</button>
-                        )}
+                        {node.state === 'active' ? '🟢 Conectado' : '🔴 Desconectado'}
                       </td>
                     </tr>
                   ))}

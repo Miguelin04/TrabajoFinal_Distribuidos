@@ -12,19 +12,17 @@ public class HospitalNode {
     private String state = "active";
     private int coordinator = -1;
     private long clock = System.currentTimeMillis();
-    private long drift;
     private int[] vectorClock = new int[5];
     private List<Map<String, Object>> donors = new CopyOnWriteArrayList<>();
     private boolean inElection = false;
     private RestTemplate restTemplate;
 
-    private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
+    private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
     public HospitalNode(int id, SystemSimulation system, String[] nodeIps) {
         this.id = id;
         this.system = system;
         this.nodeIps = nodeIps;
-        this.drift = (long) (Math.random() * 200) - 100;
 
         org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(500);
@@ -33,12 +31,11 @@ public class HospitalNode {
 
         scheduler.scheduleAtFixedRate(this::tickClock, 1000, 1000, TimeUnit.MILLISECONDS);
         scheduler.scheduleAtFixedRate(this::monitorCoordinator, 3000, 3000, TimeUnit.MILLISECONDS);
-        scheduler.scheduleAtFixedRate(this::runBerkeley, 15000, 15000, TimeUnit.MILLISECONDS);
     }
 
     public void tickClock() {
         if (!"active".equals(state)) return;
-        clock += 1000 + drift;
+        clock = System.currentTimeMillis();
         system.broadcastState();
     }
 
@@ -62,6 +59,9 @@ public class HospitalNode {
                 return;
             }
         }
+        if (coordinator != -1 && coordinator != id && pingNode(coordinator)) {
+            return;
+        }
         this.coordinator = -1;
         announceCoordinator();
     }
@@ -71,7 +71,7 @@ public class HospitalNode {
         if (coordinator == id || coordinator == -1) return;
 
         if (!pingNode(coordinator)) {
-            system.log("Node " + id + ": Coordinator " + coordinator + " failed! Starting election.");
+            system.log("Nodo " + id + ": El coordinador " + coordinator + " falló. Iniciando elección.");
             startElection();
         }
     }
@@ -89,7 +89,7 @@ public class HospitalNode {
     public void startElection() {
         if (!"active".equals(state) || inElection) return;
         inElection = true;
-        system.log("Node " + id + " starts election");
+        system.log("Nodo " + id + " inicia elección");
 
         boolean higherNodeResponded = false;
         for (int targetId = id + 1; targetId <= nodeIps.length; targetId++) {
@@ -113,7 +113,7 @@ public class HospitalNode {
 
     public void receiveElection(int fromId) {
         if (!"active".equals(state)) return;
-        system.log("Node " + id + " received election message from " + fromId);
+        system.log("Nodo " + id + " recibió mensaje de elección de " + fromId);
         if (id > fromId) {
             startElection();
         }
@@ -123,7 +123,7 @@ public class HospitalNode {
         if (!"active".equals(state)) return;
         this.coordinator = id;
         this.inElection = false;
-        system.log("*** Node " + id + " is the NEW COORDINATOR ***");
+        system.log("*** Nodo " + id + " es el NUEVO COORDINADOR ***");
         
         for (int i = 1; i <= nodeIps.length; i++) {
             if (i != id) {
@@ -140,42 +140,46 @@ public class HospitalNode {
         if (!"active".equals(state)) return;
         this.coordinator = coordId;
         this.inElection = false;
-        system.log("Node " + id + " accepts Node " + coordId + " as coordinator");
+        system.log("Nodo " + id + " acepta a Nodo " + coordId + " como coordinador");
         system.broadcastState();
     }
 
-    public void runBerkeley() {
-        if (!"active".equals(state) || coordinator != id) return;
-        
-        system.log("Node " + id + " (Coordinator) starts Berkeley synchronization");
-        
-        // En un sistema distribuido real, Berkeley requeriría obtener el reloj de cada nodo vía HTTP
-        // Por simplicidad en la simulación asincrónica, simulamos los offsets locales para evitar un deadlock,
-        // pero la llamada al SO sí se hará.
-        long average = clock; 
-        
-        OSTimeManager osTime = new OSTimeManager();
-        osTime.setLinuxTime(clock); // Ajuste real del sistema operativo
-        
-        for (int i = 1; i <= nodeIps.length; i++) {
-            if (i != id) {
-                try {
-                    String ip = nodeIps[i - 1].trim();
-                    long offset = (long) (Math.random() * 500) - 250; // offset calculado
-                    restTemplate.postForObject("http://" + ip + ":8085/api/node/adjustClock?offset=" + offset, null, String.class);
-                } catch (Exception e) {}
-            }
-        }
-
-        system.log("Berkeley synchronization complete.");
-        system.broadcastState();
-    }
-
-    public void adjustClock(long offset) {
+    public void initialTimeSync() {
         if (!"active".equals(state)) return;
-        this.clock += offset;
-        system.log("Node " + id + " adjusted clock by " + offset + " ms");
-        new OSTimeManager().setLinuxTime(this.clock); // Aplicar al SO local
+
+        if (coordinator == id) {
+            long realTime = System.currentTimeMillis();
+            system.log("Nodo " + id + " (Coordinador) inicia sincronización de Cristian con hora real " + realTime);
+
+            OSTimeManager osTime = new OSTimeManager();
+            osTime.setLinuxTime(realTime);
+            this.clock = realTime;
+
+            for (int i = 1; i <= nodeIps.length; i++) {
+                if (i != id) {
+                    try {
+                        String ip = nodeIps[i - 1].trim();
+                        restTemplate.postForObject(
+                            "http://" + ip + ":8085/api/node/adjustClock?serverTime=" + realTime,
+                            null, String.class
+                        );
+                    } catch (Exception e) {
+                        system.log("Nodo " + id + ": No se pudo sincronizar Nodo " + i + " — ¿desconectado?");
+                    }
+                }
+            }
+            system.log("Sincronización de Cristian completa. Todos los nodos en " + new java.util.Date(realTime));
+            system.broadcastState();
+        } else {
+            system.log("Nodo " + id + " esperando sincronización del coordinador Nodo " + coordinator);
+        }
+    }
+
+    public void syncToServerTime(long serverTime) {
+        if (!"active".equals(state)) return;
+        this.clock = serverTime;
+        system.log("Nodo " + id + " sincronizado a hora del coordinador " + new java.util.Date(serverTime));
+        new OSTimeManager().setLinuxTime(this.clock);
     }
 
     public synchronized void addDonor(String name, String bloodType) {
@@ -195,7 +199,7 @@ public class HospitalNode {
         donor.put("nodeOrigin", id);
         
         donors.add(donor);
-        system.log("Node " + id + " added donor " + name + " with VC " + Arrays.toString(vectorClock));
+        system.log("Nodo " + id + " agregó donante " + name + " con RV " + Arrays.toString(vectorClock));
         
         Map<String, Object> payload = new HashMap<>();
         payload.put("donor", donor);
@@ -221,7 +225,7 @@ public class HospitalNode {
         }
         
         donors.add(donor);
-        system.log("Node " + id + " received donor " + donor.get("name") + ", updated VC to " + Arrays.toString(vectorClock));
+        system.log("Nodo " + id + " recibió donante " + donor.get("name") + ", RV actualizado " + Arrays.toString(vectorClock));
         system.broadcastState();
     }
 

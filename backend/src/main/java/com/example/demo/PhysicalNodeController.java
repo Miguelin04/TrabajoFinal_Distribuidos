@@ -39,10 +39,10 @@ public class PhysicalNodeController {
     }
 
     @PostMapping("/adjustClock")
-    public String adjustClock(@RequestParam long offset) {
+    public String adjustClock(@RequestParam long serverTime) {
         HospitalNode myNode = systemSimulation.getLocalNode();
         if (myNode != null) {
-            myNode.adjustClock(offset);
+            myNode.syncToServerTime(serverTime);
             return "ACK";
         }
         return "FAILED";
