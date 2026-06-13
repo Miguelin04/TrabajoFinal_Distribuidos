@@ -16,6 +16,7 @@ public class HospitalNode {
     private long clockOffset = 0;
     private List<Map<String, Object>> donors = new CopyOnWriteArrayList<>();
     private boolean inElection = false;
+    private long lastTimeSync = 0;
     private RestTemplate restTemplate;
 
     private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
@@ -42,13 +43,18 @@ public class HospitalNode {
 
     public void discoverCoordinator() {
         if (!"active".equals(state)) return;
-        for (int targetId = nodeIps.length; targetId > this.id; targetId--) {
-            if (pingNode(targetId)) {
-                this.coordinator = targetId;
-                return;
+        int highestAlive = -1;
+        for (int targetId = nodeIps.length; targetId >= 1; targetId--) {
+            if (targetId == this.id) continue;
+            if (pingNode(targetId) && targetId > highestAlive) {
+                highestAlive = targetId;
             }
         }
-        if (coordinator != -1 && coordinator != id && pingNode(coordinator)) {
+        if (highestAlive > 0) {
+            this.coordinator = highestAlive;
+            if (highestAlive < this.id) {
+                startElection();
+            }
             return;
         }
         this.coordinator = -1;
@@ -61,6 +67,9 @@ public class HospitalNode {
 
         if (!pingNode(coordinator)) {
             system.log("Nodo " + id + ": El coordinador " + coordinator + " falló. Iniciando elección.");
+            startElection();
+        } else if (coordinator < id) {
+            system.log("Nodo " + id + ": El coordinador " + coordinator + " tiene ID menor. Iniciando elección.");
             startElection();
         }
     }
@@ -127,6 +136,11 @@ public class HospitalNode {
 
     public void receiveCoordinator(int coordId) {
         if (!"active".equals(state)) return;
+        if (coordId < this.id) {
+            system.log("Nodo " + id + " ignora anuncio de coordinador con ID menor (" + coordId + ")");
+            startElection();
+            return;
+        }
         this.coordinator = coordId;
         this.inElection = false;
         system.log("Nodo " + id + " acepta a Nodo " + coordId + " como coordinador");
@@ -135,6 +149,9 @@ public class HospitalNode {
 
     public void initialTimeSync() {
         if (!"active".equals(state)) return;
+        long now = System.currentTimeMillis();
+        if (now - lastTimeSync < 5000) return;
+        lastTimeSync = now;
 
         if (coordinator == id) {
             long realTime = System.currentTimeMillis();
