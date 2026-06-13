@@ -13,6 +13,7 @@ function App() {
   const [newDonorName, setNewDonorName] = useState('')
   const [newDonorType, setNewDonorType] = useState('O+')
   const [selectedNode, setSelectedNode] = useState(1)
+  const [localNodeId, setLocalNodeId] = useState(null)
   const [isDarkTheme, setIsDarkTheme] = useState(true)
 
   // Cargar preferencia de tema desde localStorage
@@ -45,6 +46,9 @@ function App() {
       setNodes(state.nodes)
       if (state.donors) {
         setDonors(state.donors)
+      }
+      if (state.localNodeId) {
+        setLocalNodeId(state.localNodeId)
       }
     })
 
@@ -119,7 +123,7 @@ function App() {
             onChange={e => setSelectedNode(e.target.value)}
             className="input-field select-field"
           >
-            {nodes.filter(n => n.state === 'active').map(n => (
+            {nodes.filter(n => n.state === 'active' && n.id !== localNodeId).map(n => (
               <option key={n.id} value={n.id}>Destino: Nodo {n.id}</option>
             ))}
           </select>
@@ -135,27 +139,21 @@ function App() {
             <div className="nodes-table-wrapper">
               <table className="nodes-table">
                 <thead>
-                  <tr>
-                    <th>Nodo</th>
-                    <th>Dirección IP</th>
-                    <th>Estado</th>
-                    <th>Coordinador</th>
-                    <th>Reloj</th>
-                    <th>Reloj Vectorial</th>
-                    <th>Donantes</th>
-                    <th>Acción</th>
-                  </tr>
+                    <tr>
+                      <th>Nodo</th>
+                      <th>Dirección IP</th>
+                      <th>Coordinador</th>
+                      <th>Reloj</th>
+                      <th>Reloj Vectorial</th>
+                      <th>Donantes</th>
+                      <th>Acción</th>
+                    </tr>
                 </thead>
                 <tbody>
                   {nodes.map(node => (
                     <tr key={node.id} className={`node-row ${node.state === 'active' ? 'active' : 'failed'}`}>
                       <td className="node-id">Nodo {node.id}</td>
                       <td className="node-ip" style={{fontSize: '0.85em', color: 'var(--text-secondary)'}}>{node.ip || 'Desconocida'}</td>
-                      <td>
-                        <span className={`status-badge ${node.state}`}>
-                          {node.state === 'active' ? '● Activo' : '○ Caído'}
-                        </span>
-                      </td>
                       <td className="coord-value">
                         {actualCoordId === -1 ? 'Ninguno' : `${actualCoordId} ${node.id === actualCoordId ? '👑' : ''}`}
                       </td>

@@ -13,6 +13,7 @@ public class HospitalNode {
     private int coordinator = -1;
     private long clock = System.currentTimeMillis();
     private int[] vectorClock = new int[5];
+    private long clockOffset = 0;
     private List<Map<String, Object>> donors = new CopyOnWriteArrayList<>();
     private boolean inElection = false;
     private RestTemplate restTemplate;
@@ -35,7 +36,7 @@ public class HospitalNode {
 
     public void tickClock() {
         if (!"active".equals(state)) return;
-        clock = System.currentTimeMillis();
+        clock = System.currentTimeMillis() + clockOffset;
         system.broadcastState();
     }
 
@@ -47,8 +48,10 @@ public class HospitalNode {
     public void recover() {
         this.state = "active";
         this.clock = System.currentTimeMillis();
+        this.clockOffset = 0;
         system.broadcastState();
         discoverCoordinator();
+        initialTimeSync();
     }
 
     public void discoverCoordinator() {
@@ -171,14 +174,26 @@ public class HospitalNode {
             system.log("Sincronización de Cristian completa. Todos los nodos en " + new java.util.Date(realTime));
             system.broadcastState();
         } else {
-            system.log("Nodo " + id + " esperando sincronización del coordinador Nodo " + coordinator);
+            if (coordinator != -1) {
+                try {
+                    String coordIp = nodeIps[coordinator - 1].trim();
+                    Map<String, Object> state = restTemplate.getForObject(
+                        "http://" + coordIp + ":8085/api/node/state", Map.class);
+                    long serverTime = ((Number) state.get("clock")).longValue();
+                    syncToServerTime(serverTime);
+                } catch (Exception e) {
+                    system.log("Nodo " + id + ": No se pudo obtener hora del coordinador Nodo " + coordinator);
+                }
+            }
         }
     }
 
     public void syncToServerTime(long serverTime) {
         if (!"active".equals(state)) return;
+        clockOffset = serverTime - System.currentTimeMillis();
         this.clock = serverTime;
-        system.log("Nodo " + id + " sincronizado a hora del coordinador " + new java.util.Date(serverTime));
+        system.log("Nodo " + id + " sincronizado a hora del coordinador " + new java.util.Date(serverTime)
+            + " (offset " + clockOffset + " ms)");
         new OSTimeManager().setLinuxTime(this.clock);
     }
 

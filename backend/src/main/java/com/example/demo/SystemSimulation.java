@@ -192,6 +192,7 @@ public class SystemSimulation {
         Map<String, Object> state = new HashMap<>();
         state.put("nodes", nodesData);
         state.put("donors", localNode.getDonors());
+        state.put("localNodeId", localNode.getId());
         server.getBroadcastOperations().sendEvent("state", state);
     }
 
