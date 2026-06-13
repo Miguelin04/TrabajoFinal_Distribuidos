@@ -40,20 +40,6 @@ public class HospitalNode {
         system.broadcastState();
     }
 
-    public void fail() {
-        this.state = "failed";
-        system.broadcastState();
-    }
-
-    public void recover() {
-        this.state = "active";
-        this.clock = System.currentTimeMillis();
-        this.clockOffset = 0;
-        system.broadcastState();
-        discoverCoordinator();
-        initialTimeSync();
-    }
-
     public void discoverCoordinator() {
         if (!"active".equals(state)) return;
         for (int targetId = nodeIps.length; targetId > this.id; targetId--) {

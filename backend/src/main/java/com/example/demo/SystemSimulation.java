@@ -74,20 +74,6 @@ public class SystemSimulation {
     }
 
     private void setupSocketListeners() {
-        server.addEventListener("killNode", Integer.class, (client, data, ackSender) -> {
-            if (localNode != null && localNode.getId() == data) {
-                log("Usuario solicitó tumbar Nodo LOCAL " + data);
-                localNode.fail();
-            }
-        });
-
-        server.addEventListener("recoverNode", Integer.class, (client, data, ackSender) -> {
-            if (localNode != null && localNode.getId() == data) {
-                log("Usuario solicitó recuperar Nodo LOCAL " + data);
-                localNode.recover();
-            }
-        });
-
         server.addEventListener("addDonor", Map.class, (client, data, ackSender) -> {
             Integer targetNodeId = ((Number) data.get("nodeId")).intValue();
             String name = (String) data.get("name");
@@ -164,6 +150,7 @@ public class SystemSimulation {
                         Boolean wasOnline = nodeOnlineStatus.get(nodeId);
                         if (wasOnline != null && !wasOnline) {
                             log("🔌 Nodo " + nodeId + " (IP: " + ip + ") ha reconectado su cable de red.");
+                            localNode.initialTimeSync();
                         }
                         nodeOnlineStatus.put(nodeId, true);
                     } else {
