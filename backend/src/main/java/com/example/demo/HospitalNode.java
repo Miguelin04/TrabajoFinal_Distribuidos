@@ -16,6 +16,8 @@ public class HospitalNode {
     private long clockOffset = 0;
     private List<Map<String, Object>> donors = new CopyOnWriteArrayList<>();
     private boolean inElection = false;
+    private int electionAttempts = 0;
+    private boolean timeSyncFrozen = false;
     private long lastTimeSync = 0;
     private RestTemplate restTemplate;
 
@@ -63,13 +65,29 @@ public class HospitalNode {
 
     public void monitorCoordinator() {
         if (!"active".equals(state)) return;
-        if (coordinator == id || coordinator == -1) return;
+        if (coordinator == -1) return;
+
+        // Bucle 2: Si soy coordinador, verificar que no haya un nodo superior vivo
+        if (coordinator == id) {
+            for (int targetId = nodeIps.length; targetId > id; targetId--) {
+                if (pingNode(targetId)) {
+                    system.log("Nodo " + id + ": Nodo superior " + targetId + " detectado vivo. Cediendo liderazgo.");
+                    coordinator = -1;
+                    timeSyncFrozen = true;
+                    startElection();
+                    return;
+                }
+            }
+            return; // Soy el coordinador legítimo
+        }
 
         if (!pingNode(coordinator)) {
             system.log("Nodo " + id + ": El coordinador " + coordinator + " falló. Iniciando elección.");
+            timeSyncFrozen = true;
             startElection();
         } else if (coordinator < id) {
             system.log("Nodo " + id + ": El coordinador " + coordinator + " tiene ID menor. Iniciando elección.");
+            timeSyncFrozen = true;
             startElection();
         }
     }
@@ -87,7 +105,8 @@ public class HospitalNode {
     public void startElection() {
         if (!"active".equals(state) || inElection) return;
         inElection = true;
-        system.log("Nodo " + id + " inicia elección");
+        electionAttempts++;
+        system.log("Nodo " + id + " inicia elección (intento " + electionAttempts + ")");
 
         boolean higherNodeResponded = false;
         for (int targetId = id + 1; targetId <= nodeIps.length; targetId++) {
@@ -104,7 +123,24 @@ public class HospitalNode {
 
         if (!higherNodeResponded) {
             announceCoordinator();
+            electionAttempts = 0;
         } else {
+            // Bucle 1: Si tras 3 intentos ningún nodo superior se convierte en coordinador, forzar
+            if (electionAttempts >= 3) {
+                boolean anyHigherAlive = false;
+                for (int t = id + 1; t <= nodeIps.length; t++) {
+                    if (pingNode(t)) {
+                        anyHigherAlive = true;
+                        break;
+                    }
+                }
+                if (!anyHigherAlive) {
+                    system.log("Nodo " + id + ": Forzando coordinador tras " + electionAttempts + " intentos fallidos.");
+                    announceCoordinator();
+                    electionAttempts = 0;
+                    return;
+                }
+            }
             scheduler.schedule(() -> { inElection = false; }, 5000, TimeUnit.MILLISECONDS);
         }
     }
@@ -121,6 +157,8 @@ public class HospitalNode {
         if (!"active".equals(state)) return;
         this.coordinator = id;
         this.inElection = false;
+        this.timeSyncFrozen = false;
+        this.electionAttempts = 0;
         system.log("*** Nodo " + id + " es el NUEVO COORDINADOR ***");
         
         for (int i = 1; i <= nodeIps.length; i++) {
@@ -143,12 +181,18 @@ public class HospitalNode {
         }
         this.coordinator = coordId;
         this.inElection = false;
+        this.timeSyncFrozen = false;
+        this.electionAttempts = 0;
         system.log("Nodo " + id + " acepta a Nodo " + coordId + " como coordinador");
         system.broadcastState();
     }
 
     public void initialTimeSync() {
         if (!"active".equals(state)) return;
+        if (timeSyncFrozen) {
+            system.log("Nodo " + id + ": Sincronización congelada — elección en curso.");
+            return;
+        }
         long now = System.currentTimeMillis();
         if (now - lastTimeSync < 5000) return;
         lastTimeSync = now;

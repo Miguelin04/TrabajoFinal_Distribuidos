@@ -115,6 +115,9 @@ public class SystemSimulation {
     }
 
     private Map<Integer, Boolean> nodeOnlineStatus = new ConcurrentHashMap<>();
+    private Map<Integer, Integer> nodeFailureCount = new ConcurrentHashMap<>();
+    private static final int MAX_FAILURES_BEFORE_SKIP = 3;
+    private int broadcastCycle = 0;
 
     public void broadcastState() {
         if (server == null || localNode == null) return;
@@ -141,22 +144,54 @@ public class SystemSimulation {
                 nodesData.add(map);
                 nodeOnlineStatus.put(nodeId, true);
             } else {
+                // Bucle 3: Saltar nodos con fallos consecutivos, reintentar cada 5 ciclos
+                int failures = nodeFailureCount.getOrDefault(nodeId, 0);
+                if (failures >= MAX_FAILURES_BEFORE_SKIP && broadcastCycle % 5 != 0) {
+                    Map<String, Object> offlineMap = new HashMap<>();
+                    offlineMap.put("id", nodeId);
+                    offlineMap.put("ip", ip);
+                    offlineMap.put("state", "failed");
+                    offlineMap.put("coordinator", -1);
+                    offlineMap.put("clock", System.currentTimeMillis());
+                    offlineMap.put("vectorClock", new int[]{0,0,0,0,0});
+                    offlineMap.put("donorsCount", 0);
+                    nodesData.add(offlineMap);
+                    continue;
+                }
                 try {
                     Map<String, Object> remoteState = rest.getForObject("http://" + ip + ":8085/api/node/state", Map.class);
                     if (remoteState != null && !"offline".equals(remoteState.get("state"))) {
                         remoteState.put("ip", ip);
                         nodesData.add(remoteState);
+                        nodeFailureCount.put(nodeId, 0);
                         
                         Boolean wasOnline = nodeOnlineStatus.get(nodeId);
                         if (wasOnline != null && !wasOnline) {
                             log("🔌 Nodo " + nodeId + " (IP: " + ip + ") ha reconectado su cable de red.");
-                            rest.postForObject("http://" + ip + ":8085/api/node/requestTimeSync", null, String.class);
+                            // Escenario A + Bucle 4: Actualizar coordinador ANTES de sincronizar tiempo
+                            int currentCoord = localNode.getCoordinator();
+                            if (currentCoord > 0 && currentCoord != localNode.getId()) {
+                                try {
+                                    String coordIp = nodeIps[currentCoord - 1].trim();
+                                    rest.getForObject("http://" + coordIp + ":8085/api/node/state", Map.class);
+                                } catch (Exception ex) {
+                                    currentCoord = -1;
+                                }
+                            }
+                            if (currentCoord > 0) {
+                                rest.postForObject("http://" + ip + ":8085/api/node/coordinator?coordId=" + currentCoord, null, String.class);
+                                rest.postForObject("http://" + ip + ":8085/api/node/requestTimeSync", null, String.class);
+                            } else {
+                                log("Nodo " + nodeId + " reconectó sin coordinador válido. Iniciando elección.");
+                                localNode.startElection();
+                            }
                         }
                         nodeOnlineStatus.put(nodeId, true);
                     } else {
                         throw new Exception("Offline");
                     }
                 } catch (Exception e) {
+                    nodeFailureCount.put(nodeId, nodeFailureCount.getOrDefault(nodeId, 0) + 1);
                     Boolean wasOnline = nodeOnlineStatus.get(nodeId);
                     if (wasOnline == null || wasOnline) {
                         log("⚠️ Nodo " + nodeId + " (IP: " + ip + ") ha perdido la conexión (cable desconectado o apagado).");
@@ -175,6 +210,8 @@ public class SystemSimulation {
                 }
             }
         }
+
+        broadcastCycle++;
 
         Map<String, Object> state = new HashMap<>();
         state.put("nodes", nodesData);
