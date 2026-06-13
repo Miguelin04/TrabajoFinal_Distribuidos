@@ -156,6 +156,7 @@ public class HospitalNode {
 
             OSTimeManager osTime = new OSTimeManager();
             osTime.setLinuxTime(realTime);
+            this.clockOffset = 0;
             this.clock = realTime;
 
             for (int i = 1; i <= nodeIps.length; i++) {
@@ -195,6 +196,7 @@ public class HospitalNode {
         system.log("Nodo " + id + " sincronizado a hora del coordinador " + new java.util.Date(serverTime)
             + " (offset " + clockOffset + " ms)");
         new OSTimeManager().setLinuxTime(this.clock);
+        this.clockOffset = 0;
     }
 
     public synchronized void addDonor(String name, String bloodType) {
