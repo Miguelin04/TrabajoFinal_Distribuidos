@@ -12,6 +12,8 @@ function App() {
   const [logs, setLogs] = useState([])
   const [newDonorName, setNewDonorName] = useState('')
   const [newDonorType, setNewDonorType] = useState('O+')
+  const [searchBloodType, setSearchBloodType] = useState('O+')
+  const [searchResults, setSearchResults] = useState(null)
   const [selectedNode, setSelectedNode] = useState(1)
   const [localNodeId, setLocalNodeId] = useState(null)
   const [isDarkTheme, setIsDarkTheme] = useState(true)
@@ -60,10 +62,15 @@ function App() {
       setLogs(prev => [logEntry, ...prev].slice(0, 50))
     })
 
+    socket.on('searchResult', (results) => {
+      setSearchResults(results)
+    })
+
     return () => {
       socket.off('state')
       socket.off('logs')
       socket.off('log')
+      socket.off('searchResult')
     }
   }, [])
 
@@ -72,6 +79,11 @@ function App() {
     if (!newDonorName) return
     socket.emit('addDonor', { nodeId: Number(selectedNode), name: newDonorName, bloodType: newDonorType })
     setNewDonorName('')
+  }
+
+  const handleSearchDonor = (e) => {
+    e.preventDefault()
+    socket.emit('searchDonor', { bloodType: searchBloodType })
   }
 
   const coordIds = nodes.filter(n => n.state === 'active' && n.coordinator === n.id).map(n => n.id)
@@ -97,39 +109,69 @@ function App() {
       </header>
 
       {/* Add Donor Operation - Top Section */}
-      <section className="glass-panel donor-section">
-        <h2>💉 Agregar Donante</h2>
-        <form onSubmit={handleAddDonor} className="donor-form-inline">
-          <input 
-            type="text" 
-            value={newDonorName}
-            onChange={e => setNewDonorName(e.target.value)}
-            placeholder="Nombre Completo" 
-            className="input-field"
-            required
-          />
-          <select 
-            value={newDonorType}
-            onChange={e => setNewDonorType(e.target.value)}
-            className="input-field select-field"
-          >
-            <option>O+</option><option>O-</option>
-            <option>A+</option><option>A-</option>
-            <option>B+</option><option>B-</option>
-            <option>AB+</option><option>AB-</option>
-          </select>
-          <select 
-            value={selectedNode}
-            onChange={e => setSelectedNode(e.target.value)}
-            className="input-field select-field"
-          >
-            {nodes.filter(n => n.state === 'active' && n.id !== localNodeId).map(n => (
-              <option key={n.id} value={n.id}>Destino: Nodo {n.id}</option>
-            ))}
-          </select>
-          <button type="submit" className="btn-primary">➕ Agregar</button>
-        </form>
-      </section>
+      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+        <section className="glass-panel donor-section" style={{ flex: '1' }}>
+          <h2>💉 Agregar Donante</h2>
+          <form onSubmit={handleAddDonor} className="donor-form-inline">
+            <input 
+              type="text" 
+              value={newDonorName}
+              onChange={e => setNewDonorName(e.target.value)}
+              placeholder="Nombre Completo" 
+              className="input-field"
+              required
+            />
+            <select 
+              value={newDonorType}
+              onChange={e => setNewDonorType(e.target.value)}
+              className="input-field select-field"
+            >
+              <option>O+</option><option>O-</option>
+              <option>A+</option><option>A-</option>
+              <option>B+</option><option>B-</option>
+              <option>AB+</option><option>AB-</option>
+            </select>
+            <select 
+              value={selectedNode}
+              onChange={e => setSelectedNode(e.target.value)}
+              className="input-field select-field"
+            >
+              {nodes.filter(n => n.state === 'active' && n.id !== localNodeId).map(n => (
+                <option key={n.id} value={n.id}>Destino: Nodo {n.id}</option>
+              ))}
+            </select>
+            <button type="submit" className="btn-primary">➕ Agregar</button>
+          </form>
+        </section>
+
+        {/* Search Coordinated Section */}
+        <section className="glass-panel donor-section" style={{ flex: '1' }}>
+          <h2>🔍 Búsqueda Coordinada</h2>
+          <form onSubmit={handleSearchDonor} className="donor-form-inline">
+            <select 
+              value={searchBloodType}
+              onChange={e => setSearchBloodType(e.target.value)}
+              className="input-field select-field"
+            >
+              <option>O+</option><option>O-</option>
+              <option>A+</option><option>A-</option>
+              <option>B+</option><option>B-</option>
+              <option>AB+</option><option>AB-</option>
+            </select>
+            <button type="submit" className="btn-primary" style={{ backgroundColor: '#4CAF50' }}>Buscar (Vía Coordinador)</button>
+          </form>
+          {searchResults && (
+            <div style={{ marginTop: '10px', fontSize: '0.9em' }}>
+              <strong>Resultados ({searchResults.length}):</strong>
+              <ul style={{ paddingLeft: '20px', marginTop: '5px' }}>
+                {searchResults.map((d, i) => (
+                  <li key={i}>{d.name} ({d.bloodType}) - Origen: Nodo {d.nodeOrigin}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      </div>
 
       <div className="main-grid">
         {/* Network Nodes Table */}

@@ -97,6 +97,14 @@ public class SystemSimulation {
                 }
             }
         });
+
+        server.addEventListener("searchDonor", Map.class, (client, data, ackSender) -> {
+            String bloodType = (String) data.get("bloodType");
+            if (localNode != null) {
+                List<Map<String, Object>> result = localNode.searchDonorsCoordinated(bloodType);
+                client.sendEvent("searchResult", result);
+            }
+        });
     }
 
     public HospitalNode getLocalNode() {

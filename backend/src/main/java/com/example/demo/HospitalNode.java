@@ -4,6 +4,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class HospitalNode {
     private int id;
@@ -291,6 +292,34 @@ public class HospitalNode {
         donors.add(donor);
         system.log("Nodo " + id + " recibió donante " + donor.get("name") + ", RV actualizado " + Arrays.toString(vectorClock));
         system.broadcastState();
+    }
+
+    public List<Map<String, Object>> searchDonorsCoordinated(String bloodType) {
+        if (coordinator == id) {
+            system.log("Nodo " + id + " (Coordinador) ejecutando búsqueda centralizada de tipo " + bloodType);
+            return executeLocalSearch(bloodType);
+        } else if (coordinator > 0) {
+            system.log("Nodo " + id + " redirigiendo búsqueda de tipo " + bloodType + " al coordinador Nodo " + coordinator);
+            try {
+                String coordIp = nodeIps[coordinator - 1].trim();
+                List<Map<String, Object>> result = restTemplate.getForObject(
+                    "http://" + coordIp + ":8085/api/node/executeSearch?bloodType=" + bloodType,
+                    List.class
+                );
+                return result;
+            } catch (Exception e) {
+                system.log("Error al contactar al coordinador para la búsqueda.");
+            }
+        } else {
+            system.log("Nodo " + id + " no pudo buscar: No hay coordinador activo.");
+        }
+        return new ArrayList<>();
+    }
+
+    public List<Map<String, Object>> executeLocalSearch(String bloodType) {
+        return donors.stream()
+                     .filter(d -> bloodType.equals(d.get("bloodType")))
+                     .collect(Collectors.toList());
     }
 
     public int getId() { return id; }

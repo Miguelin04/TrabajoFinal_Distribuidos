@@ -81,6 +81,15 @@ public class PhysicalNodeController {
         return "FAILED";
     }
 
+    @GetMapping("/executeSearch")
+    public List<Map<String, Object>> executeSearch(@RequestParam String bloodType) {
+        HospitalNode myNode = systemSimulation.getLocalNode();
+        if (myNode != null) {
+            return myNode.executeLocalSearch(bloodType);
+        }
+        return List.of();
+    }
+
     @GetMapping("/state")
     public Map<String, Object> getState() {
         HospitalNode node = systemSimulation.getLocalNode();
