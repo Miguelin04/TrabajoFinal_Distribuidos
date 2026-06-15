@@ -90,10 +90,12 @@ public class SystemSimulation {
                 try {
                     String targetIp = nodeIps[targetNodeId - 1].trim();
                     org.springframework.web.client.RestTemplate rest = new org.springframework.web.client.RestTemplate();
-                    rest.postForObject("http://" + targetIp + ":8085/api/node/requestAddDonor?name=" + name + "&bloodType=" + bloodType, null, String.class);
+                    // Usar variables URI para codificar automáticamente los espacios y el signo '+'
+                    String url = "http://" + targetIp + ":8085/api/node/requestAddDonor?name={name}&bloodType={bloodType}";
+                    rest.postForObject(url, null, String.class, name, bloodType);
                     log("Creación de donante delegada al Nodo " + targetNodeId + " vía P2P.");
                 } catch (Exception e) {
-                    log("Error al delegar donante al Nodo " + targetNodeId + ". ¿Está desconectado?");
+                    log("Error al delegar donante al Nodo " + targetNodeId + " (Causa: " + e.getMessage() + ")");
                 }
             }
         });
