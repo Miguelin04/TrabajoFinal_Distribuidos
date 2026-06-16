@@ -199,7 +199,12 @@ function App() {
                       <td className="coord-value">
                         {actualCoordId === -1 ? 'Ninguno' : `${actualCoordId} ${node.id === actualCoordId ? '👑' : ''}`}
                       </td>
-                      <td className="clock-value">{new Date(node.clock).toISOString().substr(11, 12)}</td>
+                      <td className="clock-value">
+                        {(() => {
+                          const d = new Date(node.clock);
+                          return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}.${String(d.getMilliseconds()).padStart(3, '0')}`;
+                        })()}
+                      </td>
                       <td className="vc-value">[{node.vectorClock.join(', ')}]</td>
                       <td className="donors-value">{node.donorsCount}</td>
                       <td className="action-cell">
