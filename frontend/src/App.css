@@ -522,7 +522,7 @@ button {
 }
 
 .blood-type-badge {
-  background: var(--primary-color);
+  background: var(--accent-blue);
   color: white;
   padding: 0.2rem 0.6rem;
   border-radius: 12px;
