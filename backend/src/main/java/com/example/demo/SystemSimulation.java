@@ -193,8 +193,12 @@ public class SystemSimulation {
                                 }
                             }
                             if (currentCoord > 0) {
-                                rest.postForObject("http://" + ip + ":8085/api/node/coordinator?coordId=" + currentCoord, null, String.class);
-                                rest.postForObject("http://" + ip + ":8085/api/node/requestTimeSync", null, String.class);
+                                try {
+                                    rest.postForObject("http://" + ip + ":8085/api/node/coordinator?coordId=" + currentCoord, null, String.class);
+                                    rest.postForObject("http://" + ip + ":8085/api/node/requestTimeSync", null, String.class);
+                                } catch (Exception e) {
+                                    // Ignorar error de reconexión para no marcarlo como offline inmediatamente
+                                }
                             } else {
                                 log("Nodo " + nodeId + " reconectó sin coordinador válido. Iniciando elección.");
                                 localNode.startElection();

@@ -323,10 +323,10 @@ public class HospitalNode {
     }
 
     public int getId() { return id; }
-    public synchronized String getState() { return state; }
-    public synchronized int getCoordinator() { return coordinator; }
-    public synchronized long getClock() { return clock; }
-    public synchronized int[] getVectorClock() { return Arrays.copyOf(vectorClock, 5); }
-    public synchronized int getDonorsCount() { return donors.size(); }
-    public synchronized List<Map<String, Object>> getDonors() { return new ArrayList<>(donors); }
+    public String getState() { return state; }
+    public int getCoordinator() { return coordinator; }
+    public long getClock() { return clock; }
+    public int[] getVectorClock() { return Arrays.copyOf(vectorClock, 5); }
+    public int getDonorsCount() { return donors.size(); }
+    public List<Map<String, Object>> getDonors() { return new ArrayList<>(donors); }
 }
